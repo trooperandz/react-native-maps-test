@@ -17,6 +17,10 @@ end
 target 'TestMapsProject' do
   config = use_native_modules!
 
+  rn_maps_path = '../node_modules/react-native-maps'
+  pod 'react-native-google-maps', :path => rn_maps_path
+  pod 'react-native-maps-generated', :path => rn_maps_path
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
@@ -31,5 +35,30 @@ target 'TestMapsProject' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Replace @import GoogleMaps; with #import <GoogleMaps/GoogleMaps.h> in specific files
+    # https://github.com/react-native-maps/react-native-maps/issues/5400
+    specific_files = [
+      "#{Pod::Config.instance.installation_root}/Pods/Google-Maps-iOS-Utils/Sources/GoogleMapsUtilsObjC/include/GMSMarker+GMUClusteritem.h",
+      "#{Pod::Config.instance.installation_root}/Pods/Google-Maps-iOS-Utils/Sources/GoogleMapsUtilsObjC/include/GMUGeoJSONParser.h",
+      "#{Pod::Config.instance.installation_root}/Pods/Google-Maps-iOS-Utils/Sources/GoogleMapsUtilsObjC/include/GMUPolygon.h",
+      "#{Pod::Config.instance.installation_root}/Pods/Google-Maps-iOS-Utils/Sources/GoogleMapsUtilsObjC/include/GMUWeightedLatLng.h",
+      "#{Pod::Config.instance.installation_root}/Pods/GoogleMaps/Maps/Sources/GMSEmpty.h"
+    ]
+
+    specific_files.each do |file|
+      if File.exist?(file)
+        text = File.read(file)
+        if text.include?("@import GoogleMaps;")
+          new_text = text.gsub("@import GoogleMaps;", "#import <GoogleMaps/GoogleMaps.h>")
+          File.open(file, "w") { |f| f.write(new_text) }
+          puts "🔧 Patched @import in: #{file}"
+        else
+          puts "ℹ️ No @import GoogleMaps; found in: #{file}"
+        end
+      else
+        puts "⚠️ File not found: #{file}"
+      end
+    end
   end
 end
